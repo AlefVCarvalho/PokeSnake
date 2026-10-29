@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ARCADE</p>
+        <h1>Snake</h1>
+      </div>
+
+      <div class="scoreboard" aria-live="polite">
+        <div>
+          <span>PONTOS</span>
+          <strong id="score">0</strong>
+        </div>
+        <div>
+          <span>RECORDE</span>
+          <strong id="best">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="game-panel" aria-label="Jogo Snake">
+      <canvas
+        id="game"
+        width="600"
+        height="600"
+        aria-label="Área do jogo Snake"
+      ></canvas>
+
+      <div id="overlay" class="overlay">
+        <h2 id="overlay-title">Snake</h2>
+        <p id="overlay-message">
+          Use as setas ou WASD para começar.
+        </p>
+        <button id="start-button" type="button">Jogar</button>
+      </div>
+    </section>
+
+    <section class="controls">
+      <p>
+        Use <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd>
+        ou <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>
+        para mover. <kbd>Espaço</kbd> para pausar.
+      </p>
+
+      <div class="actions">
+        <button id="restart-button" class="secondary" type="button">
+          Reiniciar
+        </button>
+
+        <button id="export-button" class="secondary" type="button">
+          Exportar JSON
+        </button>
+
+        <label class="button secondary file-button">
+          Importar JSON
+          <input
+            id="import-input"
+            type="file"
+            accept=".json,application/json"
+          >
+        </label>
+      </div>
+
+      <p id="status" class="status" role="status">
+        Recorde salvo neste navegador.
+      </p>
+    </section>
+  </main>
+</body>
+</html>
