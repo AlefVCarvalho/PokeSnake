@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Snake</title>
+  <title>Snake - Arcade</title>
   <link rel="stylesheet" href="style.css">
   <script src="game.js" defer></script>
 </head>
@@ -16,64 +16,159 @@
         <h1>Snake</h1>
       </div>
 
-      <div class="scoreboard" aria-live="polite">
-        <div>
-          <span>PONTOS</span>
-          <strong id="score">0</strong>
-        </div>
+      <div class="scoreboard">
         <div>
           <span>RECORDE</span>
           <strong id="best">0</strong>
         </div>
+        <div>
+          <span>PARTIDAS</span>
+          <strong id="games-played">0</strong>
+        </div>
       </div>
     </header>
 
-    <section class="game-panel" aria-label="Jogo Snake">
-      <canvas
-        id="game"
-        width="600"
-        height="600"
-        aria-label="Área do jogo Snake"
-      ></canvas>
-
-      <div id="overlay" class="overlay">
-        <h2 id="overlay-title">Snake</h2>
-        <p id="overlay-message">
-          Use as setas ou WASD para começar.
+    <section id="menu-screen" class="screen">
+      <section class="panel">
+        <h2>Escolha sua Snake</h2>
+        <p class="muted">
+          Desbloqueie novos visuais aumentando seu recorde.
         </p>
-        <button id="start-button" type="button">Jogar</button>
-      </div>
-    </section>
+        <div id="character-list" class="character-list"></div>
+      </section>
 
-    <section class="controls">
-      <p>
-        Use <kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd>
-        ou <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>
-        para mover. <kbd>Espaço</kbd> para pausar.
-      </p>
+      <section class="panel">
+        <h2>Dificuldade</h2>
 
-      <div class="actions">
-        <button id="restart-button" class="secondary" type="button">
-          Reiniciar
-        </button>
+        <div class="difficulty-list">
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty"
+                   value="easy" checked>
+            <span>
+              <strong>Easy</strong>
+              <small>10 minutos · 7 movimentos/s</small>
+            </span>
+          </label>
 
-        <button id="export-button" class="secondary" type="button">
-          Exportar JSON
-        </button>
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty"
+                   value="medium">
+            <span>
+              <strong>Medium</strong>
+              <small>8 minutos · 9 movimentos/s</small>
+            </span>
+          </label>
 
+          <label class="difficulty-option">
+            <input type="radio" name="difficulty"
+                   value="hard">
+            <span>
+              <strong>Hard</strong>
+              <small>5 minutos · 12 movimentos/s</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <div class="menu-actions">
+        <button id="play-button" type="button">Jogar</button>
+        <button id="tutorial-button" class="secondary"
+                type="button">Tutorial</button>
+        <button id="export-button" class="secondary"
+                type="button">Exportar dados</button>
         <label class="button secondary file-button">
-          Importar JSON
-          <input
-            id="import-input"
-            type="file"
-            accept=".json,application/json"
-          >
+          Importar dados
+          <input id="import-input" type="file"
+                 accept=".json,application/json">
         </label>
       </div>
 
-      <p id="status" class="status" role="status">
-        Recorde salvo neste navegador.
-      </p>
+      <p id="menu-status" class="status" role="status"></p>
+    </section>
+
+    <section id="game-screen" class="screen" hidden>
+      <div class="game-toolbar">
+        <div class="game-stat">
+          <span>PONTOS</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="game-stat">
+          <span>TEMPO</span>
+          <strong id="timer">10:00</strong>
+        </div>
+        <div class="game-stat">
+          <span>MODO</span>
+          <strong id="current-difficulty">Easy</strong>
+        </div>
+      </div>
+
+      <section class="game-panel">
+        <canvas id="game" width="600" height="600"
+                aria-label="Área do jogo Snake"></canvas>
+
+        <div id="game-overlay" class="overlay" hidden>
+          <h2 id="overlay-title">Pausado</h2>
+          <p id="overlay-message"></p>
+          <button id="resume-button" type="button">Continuar</button>
+          <button id="menu-button" class="secondary"
+                  type="button">Voltar ao menu</button>
+        </div>
+      </section>
+
+      <div class="game-footer">
+        <p>
+          Setas ou WASD para mover · Espaço para pausar
+        </p>
+        <button id="pause-button" class="secondary"
+                type="button">Pausar</button>
+      </div>
+    </section>
+
+    <section id="tutorial-screen" class="screen" hidden>
+      <div class="panel tutorial-panel">
+        <h2>Como jogar</h2>
+
+        <article>
+          <h3>Movimentação</h3>
+          <p>
+            Use as setas do teclado ou W, A, S e D.
+            A cobra não pode inverter diretamente a direção.
+            Bater nas paredes ou no próprio corpo encerra a partida.
+          </p>
+        </article>
+
+        <article>
+          <h3>Frutas</h3>
+          <p>
+            Colete as frutas para ganhar pontos.
+            Cada fruta também acrescenta 20 segundos ao cronômetro.
+            Existem três visuais de fruta escolhidos aleatoriamente;
+            todos têm o mesmo efeito.
+          </p>
+        </article>
+
+        <article>
+          <h3>Tempo e dificuldade</h3>
+          <p>
+            Easy começa com 10 minutos, Medium com 8 minutos
+            e Hard com 5 minutos. Modos difíceis dão mais pontos,
+            mas a cobra se move mais rapidamente.
+          </p>
+        </article>
+
+        <article>
+          <h3>Desbloqueios</h3>
+          <p>
+            O recorde desbloqueia os visuais na seguinte ordem:
+            Ekans, Onix, Serperior, Dratini, Gyarados e Rayquaza.
+            Cada novo visual exige mais 100 pontos de recorde.
+          </p>
+        </article>
+
+        <button id="tutorial-back-button" type="button">
+          Voltar ao menu
+        </button>
+      </div>
     </section>
   </main>
 </body>

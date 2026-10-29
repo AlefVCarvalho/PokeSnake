@@ -3,59 +3,97 @@
   "use strict";
 
   // Elementos da interface
-  const canvas = document.querySelector("#game");
+  const $ = selector => document.querySelector(selector);
+
+  const canvas = $("#game");
   const ctx = canvas.getContext("2d");
 
-  const scoreElement = document.querySelector("#score");
-  const bestElement = document.querySelector("#best");
-  const overlay = document.querySelector("#overlay");
-  const overlayTitle = document.querySelector("#overlay-title");
-  const overlayMessage = document.querySelector("#overlay-message");
-  const startButton = document.querySelector("#start-button");
-  const statusElement = document.querySelector("#status");
+  const menuScreen = $("#menu-screen");
+  const gameScreen = $("#game-screen");
+  const tutorialScreen = $("#tutorial-screen");
+
+  const characterList = $("#character-list");
+  const scoreElement = $("#score");
+  const bestElement = $("#best");
+  const gamesElement = $("#games-played");
+  const timerElement = $("#timer");
+  const difficultyElement = $("#current-difficulty");
+
+  const gameOverlay = $("#game-overlay");
+  const overlayTitle = $("#overlay-title");
+  const overlayMessage = $("#overlay-message");
+  const resumeButton = $("#resume-button");
+  const menuStatus = $("#menu-status");
 
   // Configurações
-  const STORAGE_KEY = "snake-game-data-v1";
+  const STORAGE_KEY = "snake-game-data-v2";
   const CELLS = 24;
   const CELL = canvas.width / CELLS;
-  const STEP_MS = 115;
+  const SAVE_VERSION = 2;
 
-  const ASSET_PATHS = {
-    background: "assets/background.png",
-    head: "assets/snake-head.png",
-    body: "assets/snake-body.png",
-    tail: "assets/snake-tail.png",
-    fruit: "assets/fruit.png"
+  const DIFFICULTIES = {
+    easy: {
+      label: "Easy",
+      time: 600,
+      speed: 7,
+      fruitPoints: 10,
+      survivalPoints: 1
+    },
+    medium: {
+      label: "Medium",
+      time: 480,
+      speed: 9,
+      fruitPoints: 15,
+      survivalPoints: 2
+    },
+    hard: {
+      label: "Hard",
+      time: 300,
+      speed: 12,
+      fruitPoints: 20,
+      survivalPoints: 3
+    }
   };
 
-  // Carregamento das imagens
-  const images = {};
+  const CHARACTERS = [
+    { id: "ekans", name: "Ekans", unlock: 0 },
+    { id: "onix", name: "Onix", unlock: 100 },
+    { id: "serperior", name: "Serperior", unlock: 200 },
+    { id: "dratini", name: "Dratini", unlock: 300 },
+    { id: "gyarados", name: "Gyarados", unlock: 400 },
+    { id: "rayquaza", name: "Rayquaza", unlock: 500 }
+  ];
 
-  for (const [name, src] of Object.entries(ASSET_PATHS)) {
-    const image = new Image();
-    image.src = src;
-    image.onload = draw;
-    images[name] = image;
+  const FRUIT_IMAGES = [
+    "assets/fruits/fruit-1.png",
+    "assets/fruits/fruit-2.png",
+    "assets/fruits/fruit-3.png"
+  ];
+
+  const background = new Image();
+  background.src = "assets/background.png";
+  background.onload = draw;
+
+  const imageCache = new Map();
+
+  function getImage(path) {
+    if (!imageCache.has(path)) {
+      const image = new Image();
+      image.src = path;
+      image.onload = draw;
+      imageCache.set(path, image);
+    }
+
+    return imageCache.get(path);
   }
-
-  // Dados persistentes
-  let saved = loadData();
-
-  // Estado atual da partida
-  let snake;
-  let direction;
-  let nextDirection;
-  let fruit;
-  let score = 0;
-  let state = "ready";
-  let lastStep = 0;
-  let animationId;
 
   function loadData() {
     const defaults = {
       best: 0,
       gamesPlayed: 0,
-      totalScore: 0
+      totalScore: 0,
+      selectedSkin: "ekans",
+      difficulty: "easy"
     };
 
     try {
@@ -64,69 +102,170 @@
       );
 
       return {
-        best: validNumber(data.best),
-        gamesPlayed: validNumber(data.gamesPlayed),
-        totalScore: validNumber(data.totalScore)
+        best: validInteger(data.best),
+        gamesPlayed: validInteger(data.gamesPlayed),
+        totalScore: validInteger(data.totalScore),
+        selectedSkin:
+          typeof data.selectedSkin === "string"
+            ? data.selectedSkin
+            : defaults.selectedSkin,
+        difficulty:
+          DIFFICULTIES[data.difficulty]
+            ? data.difficulty
+            : defaults.difficulty
       };
     } catch {
       return defaults;
     }
   }
 
-  function validNumber(value) {
+  function validInteger(value) {
     return Number.isSafeInteger(value) && value >= 0
       ? value
       : 0;
   }
 
+  let saved = loadData();
+
+  let selectedSkin = saved.selectedSkin;
+  let difficulty = saved.difficulty;
+
+  let snake = [];
+  let direction = { x: 1, y: 0 };
+  let nextDirection = { x: 1, y: 0 };
+  let fruit = null;
+
+  let score = 0;
+  let timeLeft = 0;
+  let elapsedSeconds = 0;
+  let survivalRemainder = 0;
+  let moveAccumulator = 0;
+
+  let state = "menu";
+  let animationId = null;
+  let lastFrame = 0;
+
+  // Persistência
   function saveData() {
+    saved.selectedSkin = selectedSkin;
+    saved.difficulty = difficulty;
+
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify(saved)
       );
-
-      statusElement.textContent =
-        "Progresso salvo neste navegador.";
     } catch {
-      statusElement.textContent =
-        "Não foi possível salvar. Exporte o JSON para guardar os dados.";
+      menuStatus.textContent =
+        "Não foi possível salvar no navegador. Exporte seus dados.";
     }
 
-    updateScoreboard();
+    updateHeader();
   }
 
-  function updateScoreboard() {
-    scoreElement.textContent = score;
+  function updateHeader() {
     bestElement.textContent = saved.best;
+    gamesElement.textContent = saved.gamesPlayed;
   }
 
-  // Geração de posições
-  function randomCell() {
-    return Math.floor(Math.random() * CELLS);
+  function isUnlocked(character) {
+    return saved.best >= character.unlock;
   }
 
-  function placeFruit() {
-    let candidate;
+  function selectedCharacter() {
+    return CHARACTERS.find(
+      character => character.id === selectedSkin
+    ) || CHARACTERS[0];
+  }
 
-    do {
-      candidate = {
-        x: randomCell(),
-        y: randomCell()
+  // Menu de personagens
+  function renderCharacters() {
+    characterList.replaceChildren();
+
+    for (const character of CHARACTERS) {
+      const unlocked = isUnlocked(character);
+      const selected = character.id === selectedSkin;
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "character-card";
+
+      if (selected) button.classList.add("selected");
+      if (!unlocked) button.classList.add("locked");
+
+      button.disabled = !unlocked;
+
+      const image = document.createElement("img");
+      image.src =
+        `assets/snakes/${character.id}-head.png`;
+      image.alt = character.name;
+      image.onerror = () => {
+        image.style.display = "none";
       };
-    } while (
-      snake.some(
-        part =>
-          part.x === candidate.x &&
-          part.y === candidate.y
-      )
-    );
 
-    return candidate;
+      const name = document.createElement("strong");
+      name.textContent = character.name;
+
+      const description = document.createElement("small");
+      description.textContent = unlocked
+        ? selected
+          ? "Selecionado"
+          : "Desbloqueado"
+        : `Recorde necessário: ${character.unlock}`;
+
+      button.append(image, name, description);
+
+      if (!unlocked) {
+        const lockLabel = document.createElement("small");
+        lockLabel.className = "lock-label";
+        lockLabel.textContent = "Bloqueado";
+        button.append(lockLabel);
+      }
+
+      button.addEventListener("click", () => {
+        if (!isUnlocked(character)) return;
+
+        selectedSkin = character.id;
+        saveData();
+        renderCharacters();
+      });
+
+      characterList.append(button);
+    }
   }
 
-  // Inicialização e interface
-  function resetGame() {
+  function showScreen(screen) {
+    menuScreen.hidden = screen !== "menu";
+    gameScreen.hidden = screen !== "game";
+    tutorialScreen.hidden = screen !== "tutorial";
+  }
+
+  function openMenu() {
+    cancelAnimationFrame(animationId);
+    animationId = null;
+    state = "menu";
+
+    gameOverlay.hidden = true;
+
+    showScreen("menu");
+    updateHeader();
+    renderCharacters();
+
+    menuStatus.textContent = "";
+  }
+
+  function openTutorial() {
+    if (state === "running" || state === "paused") {
+      return;
+    }
+
+    showScreen("tutorial");
+  }
+
+  // Configuração da partida
+  function startGame() {
+    const config = DIFFICULTIES[difficulty];
+
     cancelAnimationFrame(animationId);
 
     snake = [
@@ -137,105 +276,108 @@
     ];
 
     direction = { x: 1, y: 0 };
-    nextDirection = { ...direction };
+    nextDirection = { x: 1, y: 0 };
+
+    score = 0;
+    timeLeft = config.time;
+    elapsedSeconds = 0;
+    survivalRemainder = 0;
+    moveAccumulator = 0;
+    lastFrame = 0;
 
     fruit = placeFruit();
-    score = 0;
-    state = "ready";
-    lastStep = 0;
-
-    updateScoreboard();
-
-    showOverlay(
-      "Snake",
-      "Use as setas ou WASD para começar.",
-      "Jogar"
-    );
-
-    draw();
-  }
-
-  function showOverlay(title, message, buttonText) {
-    overlayTitle.textContent = title;
-    overlayMessage.textContent = message;
-    startButton.textContent = buttonText;
-
-    overlay.classList.remove("hidden");
-  }
-
-  function hideOverlay() {
-    overlay.classList.add("hidden");
-  }
-
-  function startGame() {
-    if (state === "over") {
-      resetGame();
-    }
-
-    if (state === "running") {
-      return;
-    }
 
     state = "running";
-    hideOverlay();
 
-    lastStep = 0;
+    showScreen("game");
+    gameOverlay.hidden = true;
 
-    cancelAnimationFrame(animationId);
+    difficultyElement.textContent = config.label;
+
+    updateScore();
+    updateTimer();
+    draw();
+
     animationId = requestAnimationFrame(loop);
   }
 
-  function endGame() {
-    if (state === "over") {
-      return;
+  function placeFruit() {
+    if (snake.length >= CELLS * CELLS) {
+      return null;
     }
 
-    state = "over";
+    let position;
 
-    saved.gamesPlayed += 1;
-    saved.totalScore += score;
-    saved.best = Math.max(saved.best, score);
-
-    saveData();
-
-    showOverlay(
-      "Fim de jogo",
-      `Pontuação: ${score}. Recorde: ${saved.best}.`,
-      "Jogar novamente"
+    do {
+      position = {
+        x: Math.floor(Math.random() * CELLS),
+        y: Math.floor(Math.random() * CELLS)
+      };
+    } while (
+      snake.some(
+        part =>
+          part.x === position.x &&
+          part.y === position.y
+      )
     );
 
-    draw();
+    return {
+      ...position,
+      image: FRUIT_IMAGES[
+        Math.floor(Math.random() * FRUIT_IMAGES.length)
+      ]
+    };
   }
 
-  function togglePause() {
-    if (state === "running") {
-      state = "paused";
-
-      showOverlay(
-        "Pausado",
-        "Clique em Continuar ou aperte Espaço.",
-        "Continuar"
-      );
-    } else if (state === "paused") {
-      startGame();
-    }
-  }
-
-  // Ciclo principal
+  // Ciclo de atualização
   function loop(timestamp) {
-    if (state !== "running") {
+    if (state !== "running") return;
+
+    if (!lastFrame) lastFrame = timestamp;
+
+    // Limita grandes saltos após suspensão da aba.
+    const delta = Math.min(
+      (timestamp - lastFrame) / 1000,
+      0.1
+    );
+
+    lastFrame = timestamp;
+
+    timeLeft -= delta;
+    elapsedSeconds += delta;
+    survivalRemainder += delta;
+
+    const config = DIFFICULTIES[difficulty];
+
+    // Bônus de sobrevivência a cada 5 segundos.
+    while (survivalRemainder >= 5) {
+      survivalRemainder -= 5;
+      score += config.survivalPoints;
+      updateScore();
+    }
+
+    updateTimer();
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateTimer();
+      endGame("O tempo acabou!");
       return;
     }
 
-    if (!lastStep) {
-      lastStep = timestamp;
+    moveAccumulator += delta;
+
+    const moveInterval = 1 / config.speed;
+
+    while (
+      moveAccumulator >= moveInterval &&
+      state === "running"
+    ) {
+      moveAccumulator -= moveInterval;
+      update();
     }
 
-    if (timestamp - lastStep >= STEP_MS) {
-      update();
-      lastStep = timestamp;
-      draw();
-    }
+    draw();
 
     if (state === "running") {
       animationId = requestAnimationFrame(loop);
@@ -250,60 +392,136 @@
       y: snake[0].y + direction.y
     };
 
+    const eating = fruit &&
+      head.x === fruit.x &&
+      head.y === fruit.y;
+
     const hitWall =
       head.x < 0 ||
       head.y < 0 ||
       head.x >= CELLS ||
       head.y >= CELLS;
 
-    const eating =
-      head.x === fruit.x &&
-      head.y === fruit.y;
-
-    // A cauda pode sair da posição atual no mesmo passo.
+    // Se não comer, a cauda vai sair desta posição.
     const bodyToCheck = eating
       ? snake
       : snake.slice(0, -1);
 
     const hitSelf = bodyToCheck.some(
-      part =>
-        part.x === head.x &&
-        part.y === head.y
+      part => part.x === head.x && part.y === head.y
     );
 
     if (hitWall || hitSelf) {
-      endGame();
+      endGame("A cobra colidiu!");
       return;
     }
 
     snake.unshift(head);
 
     if (eating) {
-      score += 1;
+      const config = DIFFICULTIES[difficulty];
+
+      score += config.fruitPoints;
+      timeLeft += 20;
 
       fruit = placeFruit();
 
-      if (score > saved.best) {
-        saved.best = score;
-      }
+      updateScore();
+      updateTimer();
 
-      updateScoreboard();
+      // Vitória se preencher todo o tabuleiro.
+      if (!fruit) {
+        endGame("Você preencheu todo o tabuleiro!");
+      }
     } else {
       snake.pop();
     }
   }
 
-  // Controles de direção
-  function setDirection(x, y) {
-    if (state === "ready") {
-      startGame();
-    }
+  // Pontuação e cronômetro
+  function updateScore() {
+    scoreElement.textContent = score;
+  }
 
-    if (state !== "running") {
+  function updateTimer() {
+    const seconds = Math.ceil(Math.max(0, timeLeft));
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+
+    timerElement.textContent =
+      `${String(minutes).padStart(2, "0")}:` +
+      `${String(remainder).padStart(2, "0")}`;
+  }
+
+  function endGame(message) {
+    if (state !== "running") return;
+
+    cancelAnimationFrame(animationId);
+    animationId = null;
+    state = "over";
+
+    saved.gamesPlayed += 1;
+    saved.totalScore += score;
+    saved.best = Math.max(saved.best, score);
+
+    saveData();
+    renderCharacters();
+
+    overlayTitle.textContent =
+      message === "Você preencheu todo o tabuleiro!"
+        ? "Vitória!"
+        : "Fim de jogo";
+
+    overlayMessage.textContent =
+      `${message} Pontuação: ${score}. ` +
+      `Recorde: ${saved.best}.`;
+
+    resumeButton.textContent = "Jogar novamente";
+    gameOverlay.hidden = false;
+  }
+
+  // Pausa
+  function pauseGame() {
+    if (state !== "running") return;
+
+    state = "paused";
+    cancelAnimationFrame(animationId);
+    animationId = null;
+
+    overlayTitle.textContent = "Pausado";
+    overlayMessage.textContent =
+      "O cronômetro está parado. Continue quando estiver pronto.";
+
+    resumeButton.textContent = "Continuar";
+    gameOverlay.hidden = false;
+  }
+
+  function resumeGame() {
+    if (state === "over") {
+      startGame();
       return;
     }
 
-    // Impede a cobra de inverter a direção diretamente.
+    if (state !== "paused") return;
+
+    state = "running";
+    lastFrame = 0;
+    gameOverlay.hidden = true;
+    animationId = requestAnimationFrame(loop);
+  }
+
+  // Controles
+  function setDirection(x, y) {
+    if (state !== "running") return;
+
+    if (
+      x === -direction.x &&
+      y === -direction.y
+    ) {
+      return;
+    }
+
+    // Evita múltiplas inversões entre movimentos.
     if (
       x === -nextDirection.x &&
       y === -nextDirection.y
@@ -317,20 +535,30 @@
   document.addEventListener("keydown", event => {
     const key = event.key.toLowerCase();
 
-    const controlledKeys = [
-      "arrowup",
-      "arrowdown",
-      "arrowleft",
-      "arrowright",
-      " ",
-      "w",
-      "a",
-      "s",
-      "d"
+    const controlled = [
+      "arrowup", "arrowdown",
+      "arrowleft", "arrowright",
+      "w", "a", "s", "d", " "
     ];
 
-    if (controlledKeys.includes(key)) {
+    if (controlled.includes(key)) {
       event.preventDefault();
+    }
+
+    if (key === "escape") {
+      if (state === "running") pauseGame();
+      else if (state === "paused") resumeGame();
+      return;
+    }
+
+    if (key === " " && state === "running") {
+      pauseGame();
+      return;
+    }
+
+    if (key === " " && state === "paused") {
+      resumeGame();
+      return;
     }
 
     switch (key) {
@@ -338,78 +566,48 @@
       case "w":
         setDirection(0, -1);
         break;
-
       case "arrowdown":
       case "s":
         setDirection(0, 1);
         break;
-
       case "arrowleft":
       case "a":
         setDirection(-1, 0);
         break;
-
       case "arrowright":
       case "d":
         setDirection(1, 0);
         break;
-
-      case " ":
-        togglePause();
-        break;
     }
   });
 
-  // Desenho do cenário
+  // Renderização
   function draw() {
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     drawBackground();
-    drawFruit();
-    drawSnake();
 
-    if (state === "over") {
-      ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
-      ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-    }
+    if (fruit) drawFruit();
+
+    drawSnake();
   }
 
   function drawBackground() {
-    const image = images.background;
-
-    if (image.complete && image.naturalWidth) {
+    if (background.complete && background.naturalWidth) {
       ctx.drawImage(
-        image,
+        background,
         0,
         0,
         canvas.width,
         canvas.height
       );
-
       return;
     }
 
-    // Cenário alternativo enquanto não há imagem.
     ctx.fillStyle = "#18291e";
-    ctx.fillRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.strokeStyle = "rgba(190, 230, 180, 0.055)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(190, 230, 180, 0.07)";
 
     for (let i = 0; i <= CELLS; i++) {
       const position = i * CELL;
@@ -426,36 +624,26 @@
     }
   }
 
-  // Desenho da fruta
   function drawFruit() {
+    const image = getImage(fruit.image);
     const x = fruit.x * CELL;
     const y = fruit.y * CELL;
-    const image = images.fruit;
 
     if (image.complete && image.naturalWidth) {
-      ctx.drawImage(
-        image,
-        x,
-        y,
-        CELL,
-        CELL
-      );
-
+      ctx.drawImage(image, x, y, CELL, CELL);
       return;
     }
 
     // Fruta alternativa.
     ctx.fillStyle = "#f26b5b";
     ctx.beginPath();
-
     ctx.arc(
       x + CELL / 2,
       y + CELL / 2,
-      CELL * 0.36,
+      CELL * 0.35,
       0,
       Math.PI * 2
     );
-
     ctx.fill();
 
     ctx.fillStyle = "#a5ed69";
@@ -467,64 +655,39 @@
     );
   }
 
-  // Desenho da cobra
   function drawSnake() {
-    snake.forEach((part, index) => {
-      const x = part.x * CELL;
-      const y = part.y * CELL;
+    const character = selectedCharacter();
 
+    snake.forEach((part, index) => {
       const isHead = index === 0;
       const isTail = index === snake.length - 1;
 
-      const image = isHead
-        ? images.head
+      const type = isHead
+        ? "head"
         : isTail
-          ? images.tail
-          : images.body;
+          ? "tail"
+          : "body";
+
+      const image = getImage(
+        `assets/snakes/${character.id}-${type}.png`
+      );
+
+      const x = part.x * CELL;
+      const y = part.y * CELL;
 
       if (image.complete && image.naturalWidth) {
-        drawSnakeImage(
-          image,
-          x,
-          y,
-          index,
-          isHead,
-          isTail
-        );
+        drawSprite(image, x, y, index, isHead);
       } else {
-        drawFallbackSegment(
-          x,
-          y,
-          isHead,
-          index
-        );
+        drawFallbackSegment(x, y, isHead);
       }
     });
   }
 
-
-  function drawSnakeImage(
-    image,
-    x,
-    y,
-    index,
-    isHead,
-    isTail
-  ) {
-    ctx.save();
-
-    ctx.translate(
-      x + CELL / 2,
-      y + CELL / 2
-    );
-
+  function drawSprite(image, x, y, index, isHead) {
     let angle = 0;
 
     if (isHead) {
-      angle = Math.atan2(
-        direction.y,
-        direction.x
-      );
+      angle = Math.atan2(direction.y, direction.x);
     } else if (index > 0) {
       const previous = snake[index - 1];
       const current = snake[index];
@@ -535,6 +698,8 @@
       );
     }
 
+    ctx.save();
+    ctx.translate(x + CELL / 2, y + CELL / 2);
     ctx.rotate(angle);
 
     ctx.drawImage(
@@ -548,27 +713,10 @@
     ctx.restore();
   }
 
-
-  function partDifference(previous, current) {
-    return current - previous;
-  }
-
-  function drawFallbackSegment(
-    x,
-    y,
-    isHead,
-    index
-  ) {
-    const isTail = index === snake.length - 1;
-
-    ctx.fillStyle = isHead
-      ? "#d2ff9e"
-      : isTail
-        ? "#6db84f"
-        : "#8bdc62";
+  function drawFallbackSegment(x, y, isHead) {
+    ctx.fillStyle = isHead ? "#d2ff9e" : "#8bdc62";
 
     ctx.beginPath();
-
     ctx.roundRect(
       x + 1,
       y + 1,
@@ -576,38 +724,16 @@
       CELL - 2,
       CELL * 0.25
     );
-
     ctx.fill();
 
-    if (!isHead) {
-      return;
-    }
+    if (!isHead) return;
 
-    // Olhos simples no desenho alternativo da cabeça.
     ctx.fillStyle = "#18351b";
-
-    const eyeX =
-      x + CELL * (
-        direction.x === -1
-          ? 0.25
-          : direction.x === 1
-            ? 0.68
-            : 0.3
-      );
-
-    const eyeY =
-      y + CELL * (
-        direction.y === -1
-          ? 0.25
-          : direction.y === 1
-            ? 0.68
-            : 0.3
-      );
 
     ctx.beginPath();
     ctx.arc(
-      eyeX,
-      eyeY,
+      x + CELL * 0.65,
+      y + CELL * 0.3,
       CELL * 0.06,
       0,
       Math.PI * 2
@@ -616,8 +742,8 @@
 
     ctx.beginPath();
     ctx.arc(
-      eyeX + (direction.y ? CELL * 0.35 : 0),
-      eyeY + (direction.x ? CELL * 0.35 : 0),
+      x + CELL * 0.65,
+      y + CELL * 0.7,
       CELL * 0.06,
       0,
       Math.PI * 2
@@ -625,13 +751,15 @@
     ctx.fill();
   }
 
-  // Exportação e importação JSON
+  // Exportar dados
   function exportJson() {
     const payload = {
-      version: 1,
+      version: SAVE_VERSION,
       best: saved.best,
       gamesPlayed: saved.gamesPlayed,
       totalScore: saved.totalScore,
+      selectedSkin,
+      difficulty,
       exportedAt: new Date().toISOString()
     };
 
@@ -651,16 +779,13 @@
 
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    statusElement.textContent =
-      "Arquivo snake-data.json exportado.";
+    menuStatus.textContent = "Dados exportados para snake-data.json.";
   }
 
   async function importJson(event) {
     const file = event.target.files?.[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     try {
       const data = JSON.parse(await file.text());
@@ -675,43 +800,112 @@
         !Number.isSafeInteger(data.totalScore) ||
         data.totalScore < 0
       ) {
-        throw new Error("Formato inválido");
+        throw new Error("Dados inválidos");
       }
 
-      saved = {
-        best: data.best,
-        gamesPlayed: data.gamesPlayed,
-        totalScore: data.totalScore
-      };
+      saved.best = data.best;
+      saved.gamesPlayed = data.gamesPlayed;
+      saved.totalScore = data.totalScore;
+
+      const importedCharacter = CHARACTERS.find(
+        character => character.id === data.selectedSkin
+      );
+
+      selectedSkin =
+        importedCharacter && data.best >= importedCharacter.unlock
+          ? importedCharacter.id
+          : "ekans";
+
+      difficulty = DIFFICULTIES[data.difficulty]
+        ? data.difficulty
+        : "easy";
 
       saveData();
+      renderCharacters();
+      updateHeader();
 
-      statusElement.textContent =
-        "Dados JSON importados com sucesso.";
+      const radio = document.querySelector(
+        `input[name="difficulty"][value="${difficulty}"]`
+      );
+
+      if (radio) radio.checked = true;
+
+      menuStatus.textContent = "Dados importados com sucesso.";
     } catch {
-      statusElement.textContent =
-        "JSON inválido. Selecione um arquivo exportado por este jogo.";
+      menuStatus.textContent =
+        "Arquivo inválido. Importe um JSON exportado pelo jogo.";
     } finally {
       event.target.value = "";
     }
   }
 
-  // Botões
-  startButton.addEventListener("click", startGame);
+  // Eventos da interface
+  $("#play-button").addEventListener("click", () => {
+    const radio = document.querySelector(
+      'input[name="difficulty"]:checked'
+    );
 
-  document
-    .querySelector("#restart-button")
-    .addEventListener("click", resetGame);
+    difficulty = radio?.value || "easy";
 
-  document
-    .querySelector("#export-button")
-    .addEventListener("click", exportJson);
+    saveData();
+    startGame();
+  });
 
-  document
-    .querySelector("#import-input")
-    .addEventListener("change", importJson);
+  $("#tutorial-button").addEventListener(
+    "click",
+    openTutorial
+  );
+
+  $("#tutorial-back-button").addEventListener(
+    "click",
+    () => showScreen("menu")
+  );
+
+  $("#pause-button").addEventListener(
+    "click",
+    pauseGame
+  );
+
+  resumeButton.addEventListener(
+    "click",
+    resumeGame
+  );
+
+  $("#menu-button").addEventListener(
+    "click",
+    openMenu
+  );
+
+  $("#export-button").addEventListener(
+    "click",
+    exportJson
+  );
+
+  $("#import-input").addEventListener(
+    "change",
+    importJson
+  );
 
   // Inicialização
-  updateScoreboard();
-  resetGame();
+  const initialRadio = document.querySelector(
+    `input[name="difficulty"][value="${difficulty}"]`
+  );
+
+  if (initialRadio) initialRadio.checked = true;
+
+  // Evita iniciar com um personagem ainda bloqueado.
+  if (
+    !CHARACTERS.some(
+      character =>
+        character.id === selectedSkin &&
+        isUnlocked(character)
+    )
+  ) {
+    selectedSkin = "ekans";
+  }
+
+  updateHeader();
+  renderCharacters();
+  showScreen("menu");
+  draw();
 })();
