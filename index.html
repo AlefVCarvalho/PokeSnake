@@ -1,173 +1,260 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Snake - Arcade</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#06191a">
+  <title>PokéSnake</title>
+  <link rel="preload" href="assets/fonts/jersey-10-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <script src="game.js" defer></script>
 </head>
 <body>
+  <!-- Ícones reutilizáveis -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-play" viewBox="0 0 16 16"><path d="M4 2h2v2h2v2h2v2h2v2h-2v2H8v2H6v2H4z" fill="currentColor"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 16 16"><path d="M3 2h4v12H3zM9 2h4v12H9z" fill="currentColor"/></symbol>
+      <symbol id="i-back" viewBox="0 0 16 16"><path d="M7 2h2v2H7zM5 4h2v2H5zM3 6h2v2H3zM1 8h2v2H1zM3 10h2v2H3zM5 12h2v2H5zM7 14h2v2H7z" transform="translate(2 -1)" fill="currentColor"/><path d="M4 7h11v2H4z" fill="currentColor"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z" fill="currentColor"/></symbol>
+      <symbol id="i-shrink" viewBox="0 0 16 16"><path d="M4 1h2v5H1V4h3zM10 1h2v3h3v2h-5zM1 10h5v5H4v-3H1zM10 10h5v2h-3v3h-2z" fill="currentColor"/></symbol>
+      <symbol id="i-down" viewBox="0 0 16 16"><path d="M7 1h2v7h2v2H9v1H7v-1H5V8h2zM2 12h12v3H2z" fill="currentColor"/></symbol>
+      <symbol id="i-up" viewBox="0 0 16 16"><path d="M7 11h2V4h2V2H9V1H7v1H5v2h2zM2 12h12v3H2z" fill="currentColor"/></symbol>
+      <symbol id="i-book" viewBox="0 0 16 16"><path d="M1 2h6v12H1zM9 2h6v12H9z" fill="currentColor"/><path d="M3 4h2v1H3zM3 7h2v1H3zM11 4h2v1h-2zM11 7h2v1h-2z" fill="#06191a"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 16 16"><path d="M5 1h6v2h2v4h2v8H1V7h2V3h2zm0 2v4h6V3z" fill="currentColor" fill-rule="evenodd"/></symbol>
+      <symbol id="i-flame" viewBox="0 0 16 16"><path d="M7 1h2v3h2v2h2v6h-2v2H5v-2H3V8h2V6h2z" fill="currentColor"/></symbol>
+    </defs>
+  </svg>
+
+  <!-- Aviso para celulares na vertical -->
+  <div id="rotate-hint" class="rotate-hint" role="alert">
+    <div class="rotate-phone" aria-hidden="true"></div>
+    <p class="display">Gire o aparelho</p>
+    <p>O PokéSnake é jogado na horizontal.</p>
+  </div>
+
   <main class="app">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">ARCADE</p>
-        <h1>Snake</h1>
-      </div>
+    <!-- ============ MENU ============ -->
+    <section id="menu-screen" class="screen menu">
+      <div class="menu-scene" aria-hidden="true"></div>
 
-      <div class="scoreboard">
-        <div>
-          <span>RECORDE</span>
-          <strong id="best">0</strong>
+      <div class="menu-grid">
+        <div class="menu-main">
+          <h1 class="wordmark" aria-label="PokéSnake">
+            <span class="wm-top">Poké</span>
+            <span class="wm-bottom">Snake</span>
+          </h1>
+          <p class="tagline">Colete frutas, ganhe tempo e desbloqueie novas cobras.</p>
+
+          <fieldset class="difficulty">
+            <legend class="field-title">Dificuldade</legend>
+            <div class="difficulty-list">
+              <label class="difficulty-option" data-level="1">
+                <input type="radio" name="difficulty" value="easy" checked>
+                <span class="d-body">
+                  <span class="d-name">Easy</span>
+                  <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="d-info">10 min · 7 mov/s</span>
+                </span>
+              </label>
+              <label class="difficulty-option" data-level="2">
+                <input type="radio" name="difficulty" value="medium">
+                <span class="d-body">
+                  <span class="d-name">Medium</span>
+                  <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="d-info">8 min · 9 mov/s</span>
+                </span>
+              </label>
+              <label class="difficulty-option" data-level="3">
+                <input type="radio" name="difficulty" value="hard">
+                <span class="d-body">
+                  <span class="d-name">Hard</span>
+                  <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                  <span class="d-info">5 min · 12 mov/s</span>
+                </span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="menu-cta">
+            <button id="play-button" class="btn btn-primary" type="button">
+              <svg class="ico" aria-hidden="true"><use href="#i-play"/></svg>
+              <span>Jogar</span>
+            </button>
+            <button id="tutorial-button" class="btn btn-ghost" type="button">
+              <svg class="ico" aria-hidden="true"><use href="#i-book"/></svg>
+              <span>Como jogar</span>
+            </button>
+          </div>
+
+          <div class="menu-tools">
+            <button id="export-button" class="link-btn" type="button">
+              <svg class="ico" aria-hidden="true"><use href="#i-down"/></svg>Exportar dados
+            </button>
+            <label class="link-btn file-button">
+              <svg class="ico" aria-hidden="true"><use href="#i-up"/></svg>Importar dados
+              <input id="import-input" type="file" accept=".json,application/json">
+            </label>
+            <button id="menu-fs-button" class="link-btn" type="button" data-fs>
+              <svg class="ico" aria-hidden="true"><use href="#i-expand"/></svg><span>Tela cheia</span>
+            </button>
+            <p id="menu-status" class="status" role="status"></p>
+          </div>
         </div>
-        <div>
-          <span>PARTIDAS</span>
-          <strong id="games-played">0</strong>
-        </div>
+
+        <aside class="menu-side">
+          <dl class="records">
+            <div>
+              <dt>Recorde</dt>
+              <dd id="best">0</dd>
+            </div>
+            <div>
+              <dt>Partidas</dt>
+              <dd id="games-played">0</dd>
+            </div>
+          </dl>
+
+          <div class="stage frame" id="stage">
+            <div class="stage-rays" aria-hidden="true"></div>
+            <div class="stage-pad" aria-hidden="true"></div>
+            <img id="stage-img" class="stage-img" alt="" width="100" height="100">
+            <div class="stage-info">
+              <p id="stage-name" class="display stage-name">Ekans</p>
+              <p id="stage-note" class="stage-note">Selecionado</p>
+            </div>
+          </div>
+
+          <div class="roster">
+            <p class="field-title">Escolha sua cobra</p>
+            <div id="character-list" class="character-list"></div>
+            <p id="unlock-hint" class="unlock-hint"></p>
+          </div>
+        </aside>
       </div>
-    </header>
-
-    <section id="menu-screen" class="screen">
-      <section class="panel">
-        <h2>Escolha sua Snake</h2>
-        <p class="muted">
-          Desbloqueie novos visuais aumentando seu recorde.
-        </p>
-        <div id="character-list" class="character-list"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Dificuldade</h2>
-
-        <div class="difficulty-list">
-          <label class="difficulty-option">
-            <input type="radio" name="difficulty"
-                   value="easy" checked>
-            <span>
-              <strong>Easy</strong>
-              <small>10 minutos · 7 movimentos/s</small>
-            </span>
-          </label>
-
-          <label class="difficulty-option">
-            <input type="radio" name="difficulty"
-                   value="medium">
-            <span>
-              <strong>Medium</strong>
-              <small>8 minutos · 9 movimentos/s</small>
-            </span>
-          </label>
-
-          <label class="difficulty-option">
-            <input type="radio" name="difficulty"
-                   value="hard">
-            <span>
-              <strong>Hard</strong>
-              <small>5 minutos · 12 movimentos/s</small>
-            </span>
-          </label>
-        </div>
-      </section>
-
-      <div class="menu-actions">
-        <button id="play-button" type="button">Jogar</button>
-        <button id="tutorial-button" class="secondary"
-                type="button">Tutorial</button>
-        <button id="export-button" class="secondary"
-                type="button">Exportar dados</button>
-        <label class="button secondary file-button">
-          Importar dados
-          <input id="import-input" type="file"
-                 accept=".json,application/json">
-        </label>
-      </div>
-
-      <p id="menu-status" class="status" role="status"></p>
     </section>
 
-    <section id="game-screen" class="screen" hidden>
-      <div class="game-toolbar">
-        <div class="game-stat">
-          <span>PONTOS</span>
-          <strong id="score">0</strong>
+    <!-- ============ JOGO ============ -->
+    <section id="game-screen" class="screen game" hidden>
+      <header class="hud">
+        <div class="hud-left">
+          <div class="hud-skin" aria-hidden="true"><img id="hud-skin" alt="" width="100" height="100"></div>
+          <div class="hud-mode">
+            <span class="hud-label">Modo</span>
+            <strong id="current-difficulty" class="display">Easy</strong>
+          </div>
         </div>
-        <div class="game-stat">
-          <span>TEMPO</span>
-          <strong id="timer">10:00</strong>
-        </div>
-        <div class="game-stat">
-          <span>MODO</span>
-          <strong id="current-difficulty">Easy</strong>
-        </div>
-      </div>
 
-      <section class="game-panel">
-        <canvas id="game" width="600" height="600"
-                aria-label="Área do jogo Snake"></canvas>
+        <div class="hud-center" id="timer-box">
+          <span class="hud-label">Tempo</span>
+          <strong id="timer" class="display">10:00</strong>
+        </div>
+
+        <div class="hud-right">
+          <div class="hud-stat">
+            <span class="hud-label">Pontos</span>
+            <strong id="score" class="display">0</strong>
+          </div>
+          <div class="hud-stat hud-best">
+            <span class="hud-label">Recorde</span>
+            <strong id="hud-best" class="display">0</strong>
+          </div>
+          <button id="game-fs-button" class="icon-btn" type="button" data-fs aria-label="Tela cheia" title="Tela cheia (F)">
+            <svg class="ico" aria-hidden="true"><use href="#i-expand"/></svg>
+          </button>
+          <button id="pause-button" class="icon-btn" type="button" aria-label="Pausar" title="Pausar (Espaço)">
+            <svg class="ico" aria-hidden="true"><use href="#i-pause"/></svg>
+          </button>
+        </div>
+        <div class="time-track" aria-hidden="true"><div id="time-fill" class="time-fill"></div></div>
+      </header>
+
+      <div id="field" class="field">
+        <canvas id="game" aria-label="Área do jogo Snake"></canvas>
+
+        <div id="countdown" class="countdown" hidden aria-live="assertive">
+          <p id="countdown-label" class="countdown-label">Prepare-se</p>
+          <p id="countdown-number" class="countdown-number display">3</p>
+        </div>
 
         <div id="game-overlay" class="overlay" hidden>
-          <h2 id="overlay-title">Pausado</h2>
-          <p id="overlay-message"></p>
-          <button id="resume-button" type="button">Continuar</button>
-          <button id="menu-button" class="secondary"
-                  type="button">Voltar ao menu</button>
-        </div>
-      </section>
+          <div class="overlay-panel frame">
+            <h2 id="overlay-title" class="display">Pausado</h2>
+            <p id="overlay-message" class="overlay-message"></p>
 
-      <div class="game-footer">
-        <p>
-          Setas ou WASD para mover · Espaço para pausar
-        </p>
-        <button id="pause-button" class="secondary"
-                type="button">Pausar</button>
+            <dl id="overlay-stats" class="overlay-stats" hidden>
+              <div><dt>Pontos</dt><dd id="overlay-score">0</dd></div>
+              <div><dt>Recorde</dt><dd id="overlay-best">0</dd></div>
+            </dl>
+            <p id="overlay-badge" class="overlay-badge" hidden>Novo recorde!</p>
+
+            <div class="overlay-actions">
+              <button id="resume-button" class="btn btn-primary" type="button">Continuar</button>
+              <button id="menu-button" class="btn btn-ghost" type="button">Voltar ao menu</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="tutorial-screen" class="screen" hidden>
-      <div class="panel tutorial-panel">
-        <h2>Como jogar</h2>
+    <!-- ============ TUTORIAL ============ -->
+    <section id="tutorial-screen" class="screen tutorial" hidden>
+      <div class="menu-scene" aria-hidden="true"></div>
 
-        <article>
-          <h3>Movimentação</h3>
-          <p>
-            Use as setas do teclado ou W, A, S e D.
-            A cobra não pode inverter diretamente a direção.
-            Bater nas paredes ou no próprio corpo encerra a partida.
-          </p>
-        </article>
+      <div class="tutorial-wrap">
+        <header class="tutorial-head">
+          <button id="tutorial-back-button" class="btn btn-ghost" type="button">
+            <svg class="ico" aria-hidden="true"><use href="#i-back"/></svg>
+            <span>Voltar ao menu</span>
+          </button>
+          <h2 class="display">Como jogar</h2>
+        </header>
 
-        <article>
-          <h3>Frutas</h3>
-          <p>
-            Colete as frutas para ganhar pontos.
-            Cada fruta também acrescenta 20 segundos ao cronômetro.
-            Existem três visuais de fruta escolhidos aleatoriamente;
-            todos têm o mesmo efeito.
-          </p>
-        </article>
+        <div class="tutorial-body frame">
+          <article class="tip">
+            <div class="tip-art keys" aria-hidden="true">
+              <span class="key k-up">W</span>
+              <span class="key k-left">A</span>
+              <span class="key k-down">S</span>
+              <span class="key k-right">D</span>
+            </div>
+            <div>
+              <h3 class="display">Movimentação</h3>
+              <p>Use as setas do teclado ou W, A, S e D. No celular, deslize o dedo na tela. A cobra não pode inverter a direção de uma vez. Bater nas paredes ou no próprio corpo encerra a partida.</p>
+            </div>
+          </article>
 
-        <article>
-          <h3>Tempo e dificuldade</h3>
-          <p>
-            Easy começa com 10 minutos, Medium com 8 minutos
-            e Hard com 5 minutos. Modos difíceis dão mais pontos,
-            mas a cobra se move mais rapidamente.
-          </p>
-        </article>
+          <article class="tip">
+            <div class="tip-art fruits" aria-hidden="true">
+              <img src="assets/fruits/fruit-1.png" alt="">
+              <img src="assets/fruits/fruit-2.png" alt="">
+              <img src="assets/fruits/fruit-3.png" alt="">
+            </div>
+            <div>
+              <h3 class="display">Frutas</h3>
+              <p>Colete as frutas para ganhar pontos. Cada fruta também acrescenta <b>20 segundos</b> ao cronômetro. São três visuais escolhidos aleatoriamente, todos com o mesmo efeito.</p>
+            </div>
+          </article>
 
-        <article>
-          <h3>Desbloqueios</h3>
-          <p>
-            O recorde desbloqueia os visuais na seguinte ordem:
-            Ekans, Onix, Serperior, Dratini, Gyarados e Rayquaza.
-            Cada novo visual exige mais 100 pontos de recorde.
-          </p>
-        </article>
+          <article class="tip">
+            <div class="tip-art clocks" aria-hidden="true">
+              <span><b>10</b>min</span><span><b>8</b>min</span><span><b>5</b>min</span>
+            </div>
+            <div>
+              <h3 class="display">Tempo e dificuldade</h3>
+              <p>Easy começa com 10 minutos, Medium com 8 e Hard com 5. Modos difíceis dão mais pontos, mas a cobra se move mais rápido.</p>
+            </div>
+          </article>
 
-        <button id="tutorial-back-button" type="button">
-          Voltar ao menu
-        </button>
+          <article class="tip">
+            <div class="tip-art unlocks" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div>
+              <h3 class="display">Desbloqueios</h3>
+              <p>O recorde libera novas cobras. Cada uma exige 100 pontos de recorde a mais que a anterior. Quem são elas? Só jogando para descobrir.</p>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
   </main>
