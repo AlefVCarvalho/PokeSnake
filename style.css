@@ -975,7 +975,7 @@ body {
   grid-template-columns: 8.5rem minmax(0, 1fr);
   align-items: center;
   gap: 1.6rem;
-  padding: 1.5rem 0;
+  padding: 1rem 0;
   border-bottom: 2px dashed var(--line);
 }
 
@@ -1110,6 +1110,257 @@ body {
 }
 
 /* ==========================================================
+   HABILIDADES
+   ========================================================== */
+
+.ability {
+  --skin: var(--venom);
+  display: grid;
+  gap: 0.3rem;
+  min-width: 11rem;
+  padding: 0.35rem 0.7rem 0.45rem;
+  border: 0;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--mist);
+  clip-path: var(--notch);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ability:focus-visible {
+  outline-offset: -0.5rem;
+}
+
+.ability-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.ability-name {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.ability-key {
+  min-width: 2.4rem;
+  color: var(--dim);
+  font: 600 0.82rem/1 var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ability-track {
+  height: 0.3rem;
+  background: #0a211f;
+}
+
+.ability-track i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--dim);
+  transform-origin: left center;
+}
+
+.ability[data-state="ready"] .ability-key {
+  color: var(--berry);
+}
+
+.ability[data-state="ready"] .ability-track i {
+  background: var(--berry);
+}
+
+.ability[data-state="active"] {
+  box-shadow: inset 0 0 0 2px var(--skin);
+}
+
+.ability[data-state="active"] .ability-track i {
+  background: color-mix(in srgb, var(--skin) 60%, white);
+}
+
+.ability[data-state="active"] .ability-key {
+  color: color-mix(in srgb, var(--skin) 60%, white);
+}
+
+.ability[data-state="cooldown"] {
+  cursor: default;
+}
+
+.ability[data-state="cooldown"] .ability-name {
+  color: var(--dim);
+}
+
+.ability.flash {
+  animation: ability-ready 0.6s ease-out;
+}
+
+/* Palco: descrição e habilidade */
+
+.stage-lore {
+  margin: 0.8rem 0 0;
+  color: var(--mist);
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.stage-ability {
+  margin-top: 0.8rem;
+  padding: 0.6rem 0.8rem 0.65rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 0.25rem solid color-mix(in srgb, var(--skin) 70%, white);
+}
+
+.sa-name {
+  margin: 0;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--skin) 55%, white);
+}
+
+.sa-desc {
+  margin: 0.35rem 0 0;
+  color: var(--dim);
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.hl-t {
+  color: var(--berry);
+  font-weight: 700;
+}
+
+.hl-e {
+  color: color-mix(in srgb, var(--skin) 55%, white);
+  font-weight: 700;
+}
+
+.hl-n {
+  color: #7df0b0;
+  font-weight: 700;
+}
+
+.sa-meta {
+  display: flex;
+  gap: 1.4rem;
+  margin: 0.45rem 0 0;
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+.sa-meta b {
+  font-weight: 700;
+}
+
+.meta-t b {
+  color: var(--berry);
+}
+
+.meta-c b {
+  color: #8fd3ff;
+}
+
+/* ---------- Zerar progresso ---------- */
+
+.link-btn.danger:hover {
+  color: var(--ember);
+}
+
+.btn-danger {
+  --face: var(--ember);
+  --shade: #8a2418;
+  --ink-on: #1a0503;
+  box-shadow: inset 0 0.2rem 0 #ffa090;
+}
+
+.btn-danger:hover {
+  filter: brightness(1.08);
+}
+
+.dialog {
+  --fill: #0a2321;
+  --edge: var(--ember);
+  position: fixed;
+  inset: 0;
+  width: min(32rem, calc(100% - 2rem));
+  margin: auto;
+  padding: 0;
+  border: 0;
+  color: var(--mist);
+}
+
+.dialog::backdrop {
+  background: rgba(3, 16, 17, 0.78);
+}
+
+.dialog-body {
+  display: grid;
+  gap: 0.9rem;
+  padding: 2rem 2.2rem 2.2rem;
+}
+
+.dialog h2 {
+  margin: 0;
+  color: var(--ember);
+  font-size: 3.2rem;
+  line-height: 1;
+}
+
+.dialog p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.dialog .dialog-tip {
+  color: var(--dim);
+  font-size: 0.98rem;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.8rem;
+  margin-top: 0.6rem;
+}
+
+.dialog-actions .btn {
+  flex: 1;
+}
+
+/* Tutorial: novas ilustrações */
+
+.key-wide {
+  width: 6rem;
+  height: 2.4rem;
+  font-size: 1.4rem;
+}
+
+.skill {
+  gap: 0.6rem;
+  align-content: center;
+  justify-items: center;
+}
+
+.skill-bar {
+  width: 6rem;
+  height: 0.35rem;
+  background: #0a211f;
+}
+
+.skill-bar i {
+  display: block;
+  width: 62%;
+  height: 100%;
+  background: var(--berry);
+}
+
+.keys.pause {
+  grid-template-columns: repeat(2, 3.2rem);
+  grid-template-rows: 2.4rem;
+}
+
+/* ==========================================================
    AVISO: CELULAR NA VERTICAL
    ========================================================== */
 
@@ -1234,8 +1485,14 @@ body {
     display: none;
   }
 
-  .hud-label {
+  .hud-label,
+  .ability-name,
+  .stage-lore {
     display: none;
+  }
+
+  .ability {
+    min-width: 5rem;
   }
 
   .hud {
@@ -1307,6 +1564,11 @@ body {
   22% { transform: scale(1); opacity: 1; }
   80% { opacity: 1; }
   100% { transform: scale(0.88); opacity: 0.2; }
+}
+
+@keyframes ability-ready {
+  0% { box-shadow: inset 0 0 0 2px var(--berry), 0 0 0 0.35rem rgba(255, 194, 46, 0.35); }
+  100% { box-shadow: inset 0 0 0 2px var(--line), 0 0 0 0 rgba(255, 194, 46, 0); }
 }
 
 @keyframes bump {

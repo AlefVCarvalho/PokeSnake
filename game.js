@@ -45,6 +45,20 @@
   const resumeButton = $("#resume-button");
   const menuStatus = $("#menu-status");
 
+  const abilityBtn = $("#ability-btn");
+  const abilityName = $("#ability-name");
+  const abilityKey = $("#ability-key");
+  const abilityFill = $("#ability-fill");
+
+  const stageLore = $("#stage-lore");
+  const stageAbility = $("#stage-ability");
+  const saName = $("#sa-name");
+  const saDesc = $("#sa-desc");
+  const saDur = $("#sa-dur");
+  const saCd = $("#sa-cd");
+
+  const resetDialog = $("#reset-dialog");
+
   // ------------------------------------------------------------
   // Configurações
   // ------------------------------------------------------------
@@ -55,6 +69,9 @@
   const COUNTDOWN_STEP = 0.8;     // segundos por número
   const COUNTDOWN_GO = 0.55;      // duração do "Vai!"
   const LOW_TIME = 30;            // alerta de pouco tempo
+  const DEFAULT_COOLDOWN = 15;    // recarga padrão das habilidades (s)
+  const SPEED_BOOST = 1.5;        // Serperior
+  const MAGNET_RANGE = 2;         // Gyarados (quadrados)
 
   const DIFFICULTIES = {
     easy:   { label: "Easy",   time: 600, speed: 7,  fruitPoints: 10, survivalPoints: 1 },
@@ -65,13 +82,62 @@
   // "hint" é a dica mostrada enquanto a cobra está bloqueada.
   // "color" é usado no palco do menu e como cor reserva
   // enquanto o sprite da cobra ainda não existe.
+  // Habilidade ativada com Espaço. Formatação das descrições:
+  //   {t:...} tempo   {e:...} efeito   {n:...} quantidade
   const CHARACTERS = [
-    { id: "ekans",    name: "Ekans",    unlock: 0,   color: "#a45be6" },
-    { id: "onix",     name: "Onix",     unlock: 100, color: "#9aa3ad", hint: "Pesada como uma rocha" },
-    { id: "serperior", name: "Serperior", unlock: 200, color: "#5bc46a", hint: "Altiva e elegante" },
-    { id: "dratini",  name: "Dratini",  unlock: 300, color: "#5aa7ff", hint: "Calma como a água" },
-    { id: "gyarados", name: "Gyarados", unlock: 400, color: "#3d6fcf", hint: "Fúria das profundezas" },
-    { id: "rayquaza", name: "Rayquaza", unlock: 500, color: "#2fbf8a", hint: "Domina os céus" }
+    {
+      id: "ekans", name: "Ekans", unlock: 0, color: "#a45be6",
+      lore: "Serpente sorrateira e venenosa, enrola seu corpo para repousar.",
+      ability: {
+        name: "Colheita", duration: 10,
+        desc: "Faz com que {e:frutas aparecam} {n:em dobro} por {t:10 segundos}."
+      }
+    },
+    {
+      id: "onix", name: "Onix", unlock: 100, color: "#9aa3ad",
+      hint: "Pokemon de corpo rochoso e pesado",
+      lore: "Escavando o solo, absorve muitas rochas resistentes, isso torna seu corpo sólido",
+      ability: {
+        name: "Impacto Pesado", duration: 10,
+        desc: "Ao bater na borda, {e:é desviado} em vez de colidir, por {t:10 segundos}."
+      }
+    },
+    {
+      id: "serperior", name: "Serperior", unlock: 200, color: "#5bc46a",
+      hint: "Uma nobre serpente do tipo grama",
+      lore: "Gera energia pelo sol e amplifica essa energia ao longo de seu corpo",
+      ability: {
+        name: "Luz Nobre", duration: 10,
+        desc: "Ganha {n:+50%} de {e:velocidade} por {t:10 segundos}. Uau!"
+      }
+    },
+    {
+      id: "dragonair", name: "Dragonair", unlock: 300, color: "#5aa7ff",
+      hint: "Pode alterar o clima ao seu redor",
+      lore: "Dizem que se emitir uma aura de todo o corpo, o tempo começa a mudar.",
+      ability: {
+        name: "Voo Rasante", duration: 10,
+        desc: "{e:Voa por cima do corpo}, sem colidir com ele, por {t:10 segundos}."
+      }
+    },
+    {
+      id: "gyarados", name: "Gyarados", unlock: 400, color: "#3d6fcf",
+      hint: "Não subestime um peixe pequeno",
+      lore: "Carrega um frenesi, permanece enfurecido demolindo tudo ao seu redor.",
+      ability: {
+        name: "Investida Frenética", duration: 10,
+        desc: "{e:Coleta frutas próximas}, num alcance de {n:2 quadrados}, por {t:10 segundos}."
+      }
+    },
+    {
+      id: "rayquaza", name: "Rayquaza", unlock: 500, color: "#2fbf8a",
+      hint: "Para dar fim ao conflito entre Kyogre e Groudon",
+      lore: "Voando eternamente através da camada de ozônio, consumindo meteoroides para se alimentar",
+      ability: {
+        name: "Tempestade Esmeralda", duration: 20,
+        desc: "{e:Pontuação} e {e:geração de frutas} em {n:dobro} por {t:20 segundos}."
+      }
+    }
   ];
 
   const FRUIT_IMAGES = [
@@ -361,7 +427,14 @@
   let snake = [];
   let direction = { x: 1, y: 0 };
   let nextDirection = { x: 1, y: 0 };
-  let fruit = null;
+  let fruits = [];
+  let pendingGrowth = 0;
+
+  // Habilidade da partida atual.
+  // state: ready (pronta) | active (em efeito) | cooldown (recarregando)
+  let ability = {
+    id: "ekans", state: "ready", timer: 0, total: 1, cooldown: DEFAULT_COOLDOWN
+  };
 
   let score = 0;
   let timeLeft = 0;
@@ -557,6 +630,30 @@
     applySkinToHud();
   }
 
+  // Texto com trechos coloridos: {t:tempo} {e:efeito} {n:quantidade}.
+  function richText(element, text) {
+    element.replaceChildren();
+
+    const pattern = /\{([ten]):([^}]+)\}/g;
+    let last = 0;
+    let match;
+
+    while ((match = pattern.exec(text))) {
+      if (match.index > last) {
+        element.append(text.slice(last, match.index));
+      }
+
+      const span = document.createElement("span");
+      span.className = `hl-${match[1]}`;
+      span.textContent = match[2];
+      element.append(span);
+
+      last = pattern.lastIndex;
+    }
+
+    if (last < text.length) element.append(text.slice(last));
+  }
+
   function renderStage() {
     const character =
       CHARACTERS.find(c => c.id === previewSkin) || selectedCharacter();
@@ -574,9 +671,21 @@
       stageNote.textContent =
         `${character.hint}. Libera com ${character.unlock} pontos de recorde.`;
     } else if (character.id === selectedSkin) {
-      stageNote.textContent = "Cobra selecionada";
+      stageNote.textContent = "Pokémon selecionado";
     } else {
-      stageNote.textContent = "Desbloqueada";
+      stageNote.textContent = "Desbloqueado";
+    }
+
+    // Descrição e habilidade só aparecem para cobras desbloqueadas.
+    stageLore.hidden = stageAbility.hidden = !unlocked;
+
+    if (unlocked) {
+      stageLore.textContent = character.lore;
+      saName.textContent = character.ability.name;
+      richText(saDesc, character.ability.desc);
+      saDur.textContent = `${character.ability.duration} s`;
+      saCd.textContent =
+        `${character.ability.cooldown || DEFAULT_COOLDOWN} s`;
     }
 
     const next = CHARACTERS.find(c => !isUnlocked(c));
@@ -586,7 +695,7 @@
       unlockHint.textContent =
         `Próxima cobra com ${next.unlock} pontos de recorde (faltam ${left}).`;
     } else {
-      unlockHint.textContent = "Todas as cobras foram desbloqueadas.";
+      unlockHint.textContent = "Todas os Pokemons foram desbloqueados.";
     }
   }
 
@@ -652,7 +761,10 @@
     moveAccumulator = 0;
     effects = [];
 
-    fruit = placeFruit();
+    fruits = [];
+    pendingGrowth = 0;
+    resetAbility();
+    fillFruits();
 
     gameOverlay.hidden = true;
     difficultyElement.textContent = config.label;
@@ -665,7 +777,11 @@
   }
 
   function placeFruit() {
-    if (snake.length >= cols * rows) return null;
+    if (snake.length + fruits.length >= cols * rows) return null;
+
+    const taken = (x, y) =>
+      snake.some(part => part.x === x && part.y === y) ||
+      fruits.some(item => item.x === x && item.y === y);
 
     let position;
 
@@ -674,14 +790,168 @@
         x: Math.floor(Math.random() * cols),
         y: Math.floor(Math.random() * rows)
       };
-    } while (
-      snake.some(part => part.x === position.x && part.y === position.y)
-    );
+    } while (taken(position.x, position.y));
 
     return {
       ...position,
       image: FRUIT_IMAGES[Math.floor(Math.random() * FRUIT_IMAGES.length)]
     };
+  }
+
+  // Quantas frutas devem existir no campo agora.
+  function fruitTarget() {
+    return abilityActive("ekans") || abilityActive("rayquaza") ? 2 : 1;
+  }
+
+  function fillFruits() {
+    while (fruits.length < fruitTarget()) {
+      const item = placeFruit();
+      if (!item) break;
+      fruits.push(item);
+    }
+  }
+
+  // ---------- Habilidades ----------
+
+  const abilityActive = id =>
+    ability.id === id && ability.state === "active";
+
+  const scoreMultiplier = () => (abilityActive("rayquaza") ? 2 : 1);
+
+  function resetAbility() {
+    const character = selectedCharacter();
+
+    ability = {
+      id: character.id,
+      state: "ready",
+      timer: 0,
+      total: 1,
+      cooldown: character.ability.cooldown || DEFAULT_COOLDOWN
+    };
+
+    abilityName.textContent = character.ability.name;
+    abilityBtn.style.setProperty("--skin", character.color);
+    abilityBtn.setAttribute(
+      "aria-label",
+      `Habilidade ${character.ability.name}. Tecla Espaço.`
+    );
+
+    lastAbilityUi = "";
+    updateAbilityUI();
+  }
+
+  function activateAbility() {
+    if (state !== "running" || ability.state !== "ready") return;
+
+    const character = selectedCharacter();
+
+    ability.state = "active";
+    ability.total = ability.timer = character.ability.duration;
+
+    // Colheita dupla e Ascensão: já faz a segunda fruta aparecer.
+    fillFruits();
+
+    effects.push({
+      kind: "text",
+      text: character.ability.name,
+      x: snake[0].x + 0.5,
+      y: snake[0].y - 0.4,
+      vx: 0, vy: -1.1, life: 1.2, age: 0,
+      tint: "255, 255, 255"
+    });
+
+    updateAbilityUI();
+  }
+
+  function tickAbility(delta) {
+    if (ability.state === "ready") return;
+
+    ability.timer -= delta;
+    if (ability.timer > 0) return;
+
+    if (ability.state === "active") {
+      ability.state = "cooldown";
+      ability.total = ability.timer = ability.cooldown;
+    } else {
+      ability.state = "ready";
+      ability.timer = 0;
+
+      abilityBtn.classList.remove("flash");
+      void abilityBtn.offsetWidth;
+      abilityBtn.classList.add("flash");
+    }
+  }
+
+  let lastAbilityUi = "";
+
+  function updateAbilityUI() {
+    let fraction = 1;
+    let label = "Espaço";
+
+    if (ability.state === "active") {
+      fraction = ability.timer / ability.total;
+      label = `${Math.ceil(ability.timer)}s`;
+    } else if (ability.state === "cooldown") {
+      fraction = 1 - ability.timer / ability.total;
+      label = `${Math.ceil(ability.timer)}s`;
+    }
+
+    const signature =
+      `${ability.state}|${label}|${fraction.toFixed(3)}`;
+    if (signature === lastAbilityUi) return;
+    lastAbilityUi = signature;
+
+    abilityBtn.dataset.state = ability.state;
+    abilityKey.textContent = label;
+    abilityFill.style.transform = `scaleX(${clamp(fraction, 0, 1)})`;
+  }
+
+  // Onix: escolhe um lado livre perpendicular à direção atual.
+  function deflect(dir) {
+    const head = snake[0];
+    const body = snake.slice(0, -1);
+
+    const options = [
+      { x: -dir.y, y: dir.x },
+      { x: dir.y, y: -dir.x }
+    ].filter(option => {
+      const x = head.x + option.x;
+      const y = head.y + option.y;
+
+      return (
+        x >= 0 && y >= 0 && x < cols && y < rows &&
+        !body.some(part => part.x === x && part.y === y)
+      );
+    });
+
+    if (!options.length) return null;
+
+    // Prefere o lado com mais espaço (mais perto do centro do mapa).
+    const centerDistance = option =>
+      Math.abs(head.x + option.x - (cols - 1) / 2) +
+      Math.abs(head.y + option.y - (rows - 1) / 2);
+
+    options.sort((a, b) => centerDistance(a) - centerDistance(b));
+
+    return options[0];
+  }
+
+  // Índices das frutas que a cobra pega ao chegar nesta casa.
+  function fruitsReachedBy(head) {
+    const range = abilityActive("gyarados") ? MAGNET_RANGE : 0;
+
+    const reached = [];
+
+    fruits.forEach((item, index) => {
+      if (
+        Math.abs(item.x - head.x) <= range &&
+        Math.abs(item.y - head.y) <= range
+      ) {
+        reached.push(index);
+      }
+    });
+
+    return reached;
   }
 
   // ---------- Contagem inicial ----------
@@ -748,6 +1018,7 @@
     }
 
     updateEffects(delta);
+    updateAbilityUI();
     draw();
 
     if (state === "running" || state === "countdown") {
@@ -760,11 +1031,12 @@
 
     timeLeft -= delta;
     survivalRemainder += delta;
+    tickAbility(delta);
 
     // Bônus de sobrevivência a cada 5 segundos.
     while (survivalRemainder >= 5) {
       survivalRemainder -= 5;
-      score += config.survivalPoints;
+      score += config.survivalPoints * scoreMultiplier();
       updateScore();
     }
 
@@ -779,7 +1051,9 @@
 
     moveAccumulator += delta;
 
-    const moveInterval = 1 / config.speed;
+    const speed =
+      config.speed * (abilityActive("serperior") ? SPEED_BOOST : 1);
+    const moveInterval = 1 / speed;
 
     while (moveAccumulator >= moveInterval && state === "running") {
       moveAccumulator -= moveInterval;
@@ -790,22 +1064,37 @@
   function update() {
     direction = { ...nextDirection };
 
-    const head = {
+    const outside = p =>
+      p.x < 0 || p.y < 0 || p.x >= cols || p.y >= rows;
+
+    let head = {
       x: snake[0].x + direction.x,
       y: snake[0].y + direction.y
     };
 
-    const eating = fruit && head.x === fruit.x && head.y === fruit.y;
+    // Onix: em vez de bater na borda, vira para um lado livre.
+    if (outside(head) && abilityActive("onix")) {
+      const turn = deflect(direction);
 
-    const hitWall =
-      head.x < 0 || head.y < 0 || head.x >= cols || head.y >= rows;
+      if (turn) {
+        direction = turn;
+        nextDirection = { ...turn };
+        head = { x: snake[0].x + turn.x, y: snake[0].y + turn.y };
+      }
+    }
 
-    // Se não comer, a cauda vai sair desta posição.
-    const bodyToCheck = eating ? snake : snake.slice(0, -1);
+    const reached = fruitsReachedBy(head);
+    const growing = reached.length > 0 || pendingGrowth > 0;
 
-    const hitSelf = bodyToCheck.some(
-      part => part.x === head.x && part.y === head.y
-    );
+    const hitWall = outside(head);
+
+    // Se não crescer, a cauda vai sair desta posição.
+    const bodyToCheck = growing ? snake : snake.slice(0, -1);
+
+    // Dratini atravessa o próprio corpo enquanto a habilidade dura.
+    const hitSelf =
+      !abilityActive("dratini") &&
+      bodyToCheck.some(part => part.x === head.x && part.y === head.y);
 
     if (hitWall || hitSelf) {
       endGame("A cobra colidiu!");
@@ -814,22 +1103,31 @@
 
     snake.unshift(head);
 
-    if (eating) {
+    if (reached.length) {
       const config = DIFFICULTIES[difficulty];
+      const points = config.fruitPoints * scoreMultiplier();
 
-      score += config.fruitPoints;
-      timeLeft += TIME_BONUS;
+      for (const index of reached) {
+        score += points;
+        timeLeft += TIME_BONUS;
+        spawnPickup(fruits[index], points);
+      }
 
-      spawnPickup(fruit, config.fruitPoints);
+      fruits = fruits.filter((_, index) => !reached.includes(index));
 
-      fruit = placeFruit();
+      // A primeira fruta cresce agora; as demais nos próximos passos.
+      pendingGrowth += reached.length - 1;
+
+      fillFruits();
 
       updateScore();
       updateTimer();
       bumpTimer();
 
       // Vitória se preencher todo o tabuleiro.
-      if (!fruit) endGame("Você preencheu todo o tabuleiro!");
+      if (!fruits.length) endGame("Você preencheu todo o tabuleiro!");
+    } else if (pendingGrowth > 0) {
+      pendingGrowth--;
     } else {
       snake.pop();
     }
@@ -961,15 +1259,15 @@
       return;
     }
 
-    if (key === "escape") {
+    // Esc e P pausam; Espaço dispara a habilidade da cobra.
+    if ((key === "escape" || key === "p") && !event.repeat) {
       if (state === "running" || state === "countdown") pauseGame();
       else if (state === "paused") resumeGame();
       return;
     }
 
-    if (key === " " && !event.repeat) {
-      if (state === "running" || state === "countdown") pauseGame();
-      else if (state === "paused") resumeGame();
+    if (key === " ") {
+      if (!event.repeat) activateAbility();
       return;
     }
 
@@ -1154,9 +1452,15 @@
       ctx.drawImage(backdrop, 0, 0, geo.W, geo.H);
     }
 
-    if (fruit) drawFruit();
+    for (const item of fruits) drawFruit(item);
 
+    ctx.save();
+    // Dratini fica translúcida enquanto voa sobre o corpo.
+    if (abilityActive("dratini")) ctx.globalAlpha = 0.6;
     drawSnake();
+    ctx.restore();
+
+    drawAbilityFx();
     drawEffects();
   }
 
@@ -1217,7 +1521,7 @@
     ctx.fill();
   }
 
-  function drawFruit() {
+  function drawFruit(fruit) {
     const s = geo.s;
     const cx = cellX(fruit.x) + geo.sx / 2;
     const cy = cellY(fruit.y) + geo.sy / 2;
@@ -1239,6 +1543,42 @@
     ctx.beginPath();
     ctx.arc(cx, cy, s * 0.35, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Marca discreta ao redor da cabeça enquanto a habilidade está ativa.
+  function drawAbilityFx() {
+    if (ability.state !== "active" || !snake.length) return;
+
+    // Pisca nos últimos 1,5 s para avisar que vai acabar.
+    if (ability.timer < 1.5 && Math.floor(fxTime * 8) % 2) return;
+
+    const s = geo.s;
+    const head = snake[0];
+    const cx = cellX(head.x) + geo.sx / 2;
+    const cy = cellY(head.y) + geo.sy / 2;
+    const pulse = 0.5 + 0.5 * Math.sin(fxTime * 6);
+    const color = selectedCharacter().color;
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(2, s * 0.07);
+
+    ctx.globalAlpha = 0.55 + pulse * 0.25;
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * (0.78 + pulse * 0.08), 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Gyarados: mostra o alcance de coleta.
+    if (ability.id === "gyarados") {
+      const r = MAGNET_RANGE + 0.5;
+      ctx.globalAlpha = 0.35;
+      ctx.setLineDash([s * 0.2, s * 0.2]);
+      ctx.strokeRect(
+        cx - r * geo.sx, cy - r * geo.sy, r * 2 * geo.sx, r * 2 * geo.sy
+      );
+    }
+
+    ctx.restore();
   }
 
   const QUARTER = Math.PI / 2;
@@ -1499,6 +1839,49 @@
   $("#menu-button").addEventListener("click", openMenu);
   $("#export-button").addEventListener("click", exportJson);
   $("#import-input").addEventListener("change", importJson);
+
+  // Zerar progresso (com confirmação)
+  function resetProgress() {
+    saved = {
+      best: 0,
+      gamesPlayed: 0,
+      totalScore: 0,
+      selectedSkin: "ekans",
+      difficulty: "easy"
+    };
+
+    selectedSkin = "ekans";
+    difficulty = "easy";
+    previewSkin = null;
+
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* sem armazenamento disponível */
+    }
+
+    saveData();
+
+    const radio = document.querySelector(
+      'input[name="difficulty"][value="easy"]'
+    );
+    if (radio) radio.checked = true;
+
+    renderCharacters();
+    menuStatus.textContent = "Progresso zerado.";
+  }
+
+  $("#reset-button").addEventListener("click", () => {
+    resetDialog.returnValue = "";
+    resetDialog.showModal();
+  });
+
+  resetDialog.addEventListener("close", () => {
+    if (resetDialog.returnValue === "confirm") resetProgress();
+  });
+
+  // Habilidade também pode ser tocada no celular.
+  abilityBtn.addEventListener("click", activateAbility);
 
   // ------------------------------------------------------------
   // Inicialização

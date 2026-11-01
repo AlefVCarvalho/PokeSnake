@@ -22,9 +22,21 @@
       <symbol id="i-up" viewBox="0 0 16 16"><path d="M7 11h2V4h2V2H9V1H7v1H5v2h2zM2 12h12v3H2z" fill="currentColor"/></symbol>
       <symbol id="i-book" viewBox="0 0 16 16"><path d="M1 2h6v12H1zM9 2h6v12H9z" fill="currentColor"/><path d="M3 4h2v1H3zM3 7h2v1H3zM11 4h2v1h-2zM11 7h2v1h-2z" fill="#06191a"/></symbol>
       <symbol id="i-lock" viewBox="0 0 16 16"><path d="M5 1h6v2h2v4h2v8H1V7h2V3h2zm0 2v4h6V3z" fill="currentColor" fill-rule="evenodd"/></symbol>
-      <symbol id="i-flame" viewBox="0 0 16 16"><path d="M7 1h2v3h2v2h2v6h-2v2H5v-2H3V8h2V6h2z" fill="currentColor"/></symbol>
+      <symbol id="i-x" viewBox="0 0 16 16"><path d="M2 2h3v2h2v2h2V4h2V2h3v3h-2v2h-2v2h2v2h2v3h-3v-2h-2v-2H7v2H5v2H2v-3h2v-2h2V9H4V7H2z" fill="currentColor"/></symbol>
     </defs>
   </svg>
+
+  <dialog id="reset-dialog" class="dialog frame" aria-labelledby="reset-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="reset-title" class="display">Zerar o progresso?</h2>
+      <p>Recorde, partidas jogadas e cobras desbloqueadas voltam ao começo. Isso não pode ser desfeito.</p>
+      <p class="dialog-tip">Para guardar uma cópia, use Exportar dados antes.</p>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn btn-ghost" autofocus>Cancelar</button>
+        <button value="confirm" class="btn btn-danger">Apagar tudo</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Aviso para celulares na vertical -->
   <div id="rotate-hint" class="rotate-hint" role="alert">
@@ -44,7 +56,7 @@
             <span class="wm-top">Poké</span>
             <span class="wm-bottom">Snake</span>
           </h1>
-          <p class="tagline">Colete frutas, ganhe tempo e desbloqueie novas cobras.</p>
+          <p class="tagline">Colete frutas, ganhe tempo e desbloqueie novos Pokémons.</p>
 
           <fieldset class="difficulty">
             <legend class="field-title">Dificuldade</legend>
@@ -54,7 +66,6 @@
                 <span class="d-body">
                   <span class="d-name">Easy</span>
                   <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <span class="d-info">10 min · 7 mov/s</span>
                 </span>
               </label>
               <label class="difficulty-option" data-level="2">
@@ -62,7 +73,6 @@
                 <span class="d-body">
                   <span class="d-name">Medium</span>
                   <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <span class="d-info">8 min · 9 mov/s</span>
                 </span>
               </label>
               <label class="difficulty-option" data-level="3">
@@ -70,7 +80,6 @@
                 <span class="d-body">
                   <span class="d-name">Hard</span>
                   <span class="d-meter" aria-hidden="true"><i></i><i></i><i></i></span>
-                  <span class="d-info">5 min · 12 mov/s</span>
                 </span>
               </label>
             </div>
@@ -98,6 +107,9 @@
             <button id="menu-fs-button" class="link-btn" type="button" data-fs>
               <svg class="ico" aria-hidden="true"><use href="#i-expand"/></svg><span>Tela cheia</span>
             </button>
+            <button id="reset-button" class="link-btn danger" type="button">
+              <svg class="ico" aria-hidden="true"><use href="#i-x"/></svg>Zerar progresso
+            </button>
             <p id="menu-status" class="status" role="status"></p>
           </div>
         </div>
@@ -121,6 +133,15 @@
             <div class="stage-info">
               <p id="stage-name" class="display stage-name">Ekans</p>
               <p id="stage-note" class="stage-note">Selecionado</p>
+              <p id="stage-lore" class="stage-lore" hidden></p>
+              <div id="stage-ability" class="stage-ability" hidden>
+                <p class="sa-name display" id="sa-name"></p>
+                <p class="sa-desc" id="sa-desc"></p>
+                <p class="sa-meta">
+                  <span class="meta-t">Duração <b id="sa-dur"></b></span>
+                  <span class="meta-c">Recarga <b id="sa-cd"></b></span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -142,6 +163,13 @@
             <span class="hud-label">Modo</span>
             <strong id="current-difficulty" class="display">Easy</strong>
           </div>
+          <button id="ability-btn" class="ability" type="button" data-state="ready">
+            <span class="ability-row">
+              <span id="ability-name" class="ability-name display">Habilidade</span>
+              <span id="ability-key" class="ability-key">Espaço</span>
+            </span>
+            <span class="ability-track" aria-hidden="true"><i id="ability-fill"></i></span>
+          </button>
         </div>
 
         <div class="hud-center" id="timer-box">
@@ -161,7 +189,7 @@
           <button id="game-fs-button" class="icon-btn" type="button" data-fs aria-label="Tela cheia" title="Tela cheia (F)">
             <svg class="ico" aria-hidden="true"><use href="#i-expand"/></svg>
           </button>
-          <button id="pause-button" class="icon-btn" type="button" aria-label="Pausar" title="Pausar (Espaço)">
+          <button id="pause-button" class="icon-btn" type="button" aria-label="Pausar" title="Pausar (Esc ou P)">
             <svg class="ico" aria-hidden="true"><use href="#i-pause"/></svg>
           </button>
         </div>
@@ -219,7 +247,7 @@
             </div>
             <div>
               <h3 class="display">Movimentação</h3>
-              <p>Use as setas do teclado ou W, A, S e D. No celular, deslize o dedo na tela. A cobra não pode inverter a direção de uma vez. Bater nas paredes ou no próprio corpo encerra a partida.</p>
+              <p>Use as setas do teclado ou W, A, S e D. No celular, deslize o dedo na tela. Bater nas paredes ou no próprio corpo encerra a partida.</p>
             </div>
           </article>
 
@@ -231,7 +259,7 @@
             </div>
             <div>
               <h3 class="display">Frutas</h3>
-              <p>Colete as frutas para ganhar pontos. Cada fruta também acrescenta <b>20 segundos</b> ao cronômetro. São três visuais escolhidos aleatoriamente, todos com o mesmo efeito.</p>
+              <p>Colete as frutas para ganhar pontos. Cada fruta acrescenta <b>20 segundos</b> ao cronômetro.</p>
             </div>
           </article>
 
@@ -241,7 +269,7 @@
             </div>
             <div>
               <h3 class="display">Tempo e dificuldade</h3>
-              <p>Easy começa com 10 minutos, Medium com 8 e Hard com 5. Modos difíceis dão mais pontos, mas a cobra se move mais rápido.</p>
+              <p><b>Easy</b> começa com 10 minutos, <b>Medium</b> com 8 e <b>Hard</b> com 5. Modos difíceis dão mais pontos, mas você se move mais rápido, cuidado!</p>
             </div>
           </article>
 
@@ -251,7 +279,29 @@
             </div>
             <div>
               <h3 class="display">Desbloqueios</h3>
-              <p>O recorde libera novas cobras. Cada uma exige 100 pontos de recorde a mais que a anterior. Quem são elas? Só jogando para descobrir.</p>
+              <p>A cada <b>100 pontos</b> de recorde a mais, um novo Pokémon é desbloqueado. Quem são esses Pokémons?</p>
+            </div>
+          </article>
+
+          <article class="tip">
+            <div class="tip-art skill" aria-hidden="true">
+              <span class="key key-wide">Espaço</span>
+              <span class="skill-bar"><i></i></span>
+            </div>
+            <div>
+              <h3 class="display">Habilidade</h3>
+              <p>Cada Pokémon tem uma habilidade. Aperte <b>Espaço</b> para usar (ou toque na barra no canto superior esquerdo). Depois de usada recarrega em <b>15 segundos</b>.</p>
+            </div>
+          </article>
+
+          <article class="tip">
+            <div class="tip-art keys pause" aria-hidden="true">
+              <span class="key">Esc</span>
+              <span class="key">P</span>
+            </div>
+            <div>
+              <h3 class="display">Pausa</h3>
+              <p>Para pausar o jogo basta apertar <b>Esc</b> ou <b>P</b>.</p>
             </div>
           </article>
         </div>
